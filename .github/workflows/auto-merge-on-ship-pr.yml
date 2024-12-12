@@ -6,16 +6,10 @@ on:
 
 jobs:
   auto-merge:
+    if: contains(github.event.pull_request.title, 'ship') # Solo ejecuta si el título contiene "ship"
     runs-on: ubuntu-latest
-    steps:
-      - name: Check PR title for "ship"
-        id: check_title
-        run: |
-          if [[ "${{ github.event.pull_request.title }}" != *"ship"* ]]; then
-            echo "PR title does not contain 'ship'. Skipping the workflow."
-            exit 78  # Exit with code 78 to cancel the job (special GitHub Actions exit code to cancel the job)
-          fi
 
+    steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
