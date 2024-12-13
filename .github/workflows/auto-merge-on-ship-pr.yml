@@ -30,8 +30,8 @@ jobs:
 
           # Esperar hasta que todos los checks hayan terminado, excluyendo el propio workflow
           while true; do
-            # Obtener el estado de los check suites del PR, excluyendo el propio workflow
-            CHECKS=$(gh pr checks "$PR_NUMBER" --json checkSuites -q '[.checkSuites.nodes[] | select(.app.name != "GitHub Actions") | .conclusion]')
+            # Obtener los status de los checks, excluyendo el propio workflow de GitHub Actions
+            CHECKS=$(gh pr checks "$PR_NUMBER" --json statusChecks -q '[.statusChecks[] | select(.app.name != "GitHub Actions") | .conclusion]')
 
             # Verificar si todos los checks están completos (success o failure)
             IN_PROGRESS=$(echo "$CHECKS" | grep -c "IN_PROGRESS")
@@ -51,10 +51,10 @@ jobs:
           PR_NUMBER=${{ github.event.pull_request.number }}
 
           # Obtener detalles del PR usando la API de GitHub CLI
-          pr=$(gh pr view "$PR_NUMBER" --json checkSuites)
+          pr=$(gh pr view "$PR_NUMBER" --json statusChecks)
 
           # Obtener el estado de los checks (sin contar el workflow de auto-merge)
-          PR_STATUS_CHECKS=$(echo "$pr" | jq -r 'if ([.checkSuites.nodes[] | select(.conclusion != "SUCCESS")] | length) == 0 then "SUCCESS" else "FAILURE" end')
+          PR_STATUS_CHECKS=$(echo "$pr" | jq -r 'if ([.statusChecks[] | select(.conclusion != "SUCCESS")] | length) == 0 then "SUCCESS" else "FAILURE" end')
 
           # Verificar si todos los checks han pasado
           if [ "$PR_STATUS_CHECKS" = "SUCCESS" ]; then
