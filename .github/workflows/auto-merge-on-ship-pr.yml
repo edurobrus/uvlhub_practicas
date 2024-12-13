@@ -36,8 +36,8 @@ jobs:
           WORKFLOW_STATUSES=$(gh run list --json conclusion,status,event,headBranch -q '[.[] | select(.event == "pull_request" and .headBranch == "${{ github.head_ref }}")]')
           echo "Workflow statuses: $WORKFLOW_STATUSES"
 
-          # Ensure all workflows completed successfully
-          if echo "$WORKFLOW_STATUSES" | jq -e '.[] | select(.status != "completed" or .conclusion != "success")' > /dev/null; then
+          # Ensure all relevant workflows completed successfully (ignore skipped workflows)
+          if echo "$WORKFLOW_STATUSES" | jq -e '.[] | select(.status != "completed" or (.conclusion != "success" and .conclusion != "skipped"))' > /dev/null; then
             echo "Some workflows for PR #$PR_NUMBER are incomplete or failed. Skipping merge."
             exit 1
           fi
