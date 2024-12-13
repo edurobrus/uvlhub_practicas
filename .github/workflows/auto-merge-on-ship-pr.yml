@@ -30,7 +30,7 @@ jobs:
           PR_NUMBER=${{ github.event.pull_request.number }}
 
           # Verify all checks have passed
-          ALL_CHECKS_PASSED=$(gh pr checks "$PR_NUMBER" --json status -q '.status == "SUCCESS"')
+          ALL_CHECKS_PASSED=$(gh pr checks "$PR_NUMBER" --json state -q '.state == "COMPLETED"')
 
           if [ "$ALL_CHECKS_PASSED" = "true" ]; then
             echo "All checks have passed for PR #$PR_NUMBER. Verifying mergeable status..."
