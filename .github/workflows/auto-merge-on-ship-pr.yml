@@ -23,17 +23,37 @@ jobs:
         run: |
           echo "${ADMIN_TOKEN}" | gh auth login --with-token
 
+      - name: Wait for all checks to complete (excluding this workflow)
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          echo "Waiting for all checks to complete for PR #$PR_NUMBER..."
+
+          # Esperar hasta que todos los checks hayan terminado, excluyendo el propio workflow
+          while true; do
+            # Obtener el estado de los checks del PR, excluyendo el propio workflow (que ejecuta la acción de merge)
+            CHECKS=$(gh pr checks "$PR_NUMBER" --json statusCheckRollup -q '[.statusCheckRollup[] | select(.app.name != "GitHub Actions") | .conclusion]')
+
+            # Verificar si todos los checks están completos (success o failure)
+            IN_PROGRESS=$(echo "$CHECKS" | grep -c "IN_PROGRESS")
+            if [ "$IN_PROGRESS" -eq 0 ]; then
+              echo "All checks completed. Proceeding to verify mergeable status."
+              break
+            else
+              echo "Some checks are still in progress. Waiting..."
+              sleep 10
+            fi
+          done
+
       - name: Check PR status and merge
         env:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
-          # Extraer el número del PR
           PR_NUMBER=${{ github.event.pull_request.number }}
 
           # Obtener detalles del PR usando la API de GitHub CLI
           pr=$(gh pr view "$PR_NUMBER" --json statusCheckRollup)
 
-          # Obtener el estado de los checks
+          # Obtener el estado de los checks (sin contar el workflow de auto-merge)
           PR_STATUS_CHECKS=$(echo "$pr" | jq -r 'if ([.statusCheckRollup[] | select(.conclusion != "SUCCESS")] | length) == 0 then "SUCCESS" else "FAILURE" end')
 
           # Verificar si todos los checks han pasado
@@ -52,5 +72,5 @@ jobs:
               echo "PR #$PR_NUMBER is not mergeable. Skipping merge."
             fi
           else
-            echo "Not all checks have passed for PR $PR_STATUS_CHECKS. Skipping merge."
+            echo "Not all checks have passed for PR #$PR_NUMBER. Skipping merge."
           fi
