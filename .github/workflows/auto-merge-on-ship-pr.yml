@@ -23,41 +23,24 @@ jobs:
         run: |
           echo "${ADMIN_TOKEN}" | gh auth login --with-token
 
-      - name: Wait for all checks to complete (excluding this workflow)
-        run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
-          echo "Waiting for all checks to complete for PR #$PR_NUMBER..."
-
-          # Esperar hasta que todos los checks hayan terminado, excluyendo el propio workflow
-          while true; do
-            # Obtener los status de los checks, excluyendo el propio workflow de GitHub Actions
-            CHECKS=$(gh pr checks "$PR_NUMBER" --json statusChecks -q '[.statusChecks[] | select(.app.name != "GitHub Actions") | .conclusion]')
-
-            # Verificar si todos los checks están completos (success o failure)
-            IN_PROGRESS=$(echo "$CHECKS" | grep -c "IN_PROGRESS")
-            if [ "$IN_PROGRESS" -eq 0 ]; then
-              echo "All checks completed. Proceeding to verify mergeable status."
-              break
-            else
-              echo "Some checks are still in progress. Waiting..."
-              sleep 10
-            fi
-          done
-
       - name: Check PR status and merge
         env:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
-          PR_NUMBER=${{ github.event.pull_request.number }}
+          # Extraer el número del PR
+          PR_NUMBER=$(echo "$pr" | jq -r '.number')
 
           # Obtener detalles del PR usando la API de GitHub CLI
-          pr=$(gh pr view "$PR_NUMBER" --json statusChecks)
+          pr=$(gh pr view "$PR_NUMBER" --json statusCheckRollup)
 
-          # Obtener el estado de los checks (sin contar el workflow de auto-merge)
-          PR_STATUS_CHECKS=$(echo "$pr" | jq -r 'if ([.statusChecks[] | select(.conclusion != "SUCCESS")] | length) == 0 then "SUCCESS" else "FAILURE" end')
+          # Obtener el estado de los checks
+          PR_STATUS_CHECKS=$(echo "$pr" | jq -r 'if ([.statusCheckRollup[] | select(.conclusion != "SUCCESS")] | length) == 0 then "SUCCESS" else "FAILURE" end')
+
+          # Contar cuántos workflows han fallado (conclusion != "SUCCESS")
+          FAILED_COUNT=$(echo "$pr" | jq -r 'if ([.statusCheckRollup[] | select(.conclusion != "SUCCESS")] | length)
 
           # Verificar si todos los checks han pasado
-          if [ "$PR_STATUS_CHECKS" = "SUCCESS" ]; then
+          if [ "$PR_STATUS_CHECKS" = "SUCCESS" ] || [ "$FAILED_COUNT"  == 0 ]; then
             echo "All checks have passed for PR #$PR_NUMBER. Verifying mergeable status..."
 
             # Verificar si el PR es mergeable
@@ -72,5 +55,5 @@ jobs:
               echo "PR #$PR_NUMBER is not mergeable. Skipping merge."
             fi
           else
-            echo "Not all checks have passed for PR #$PR_NUMBER. Skipping merge."
+            echo "Not all checks have passed for PR $PR_STATUS_CHECKS. Skipping merge."
           fi
