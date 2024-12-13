@@ -28,7 +28,7 @@ jobs:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
           # Extraer el número del PR
-          PR_NUMBER=${{ github.event.pull_request.number }}
+          PR_NUMBER=$(echo "$pr" | jq -r '.number')
 
           # Inicializar la condición de FAILURE_COUNT
           FAILED_COUNT=0
