@@ -29,7 +29,7 @@ jobs:
         run: |
           # Extract PR details
           PR_NUMBER=${{ github.event.pull_request.number }}
-          CURRENT_RUN_ID=$(gh run view --json databaseId -q '.databaseId')
+          CURRENT_RUN_ID=${{ github.run_id }}
           PR_MERGEABLE=$(gh pr view "$PR_NUMBER" --json mergeable -q '.mergeable')
 
           # Fetch workflows for this PR and exclude the current workflow
