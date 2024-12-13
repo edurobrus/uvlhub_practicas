@@ -36,7 +36,22 @@ jobs:
           WORKFLOW_STATUSES=$(gh run list --json conclusion,status,event,headBranch -q '[.[] | select(.event == "pull_request" and .headBranch == "${{ github.head_ref }}")]')
           echo "Workflow statuses: $WORKFLOW_STATUSES"
 
-          # Ensure all relevant workflows completed successfully (ignore skipped workflows)
+          # Wait for in-progress workflows to complete
+          MAX_RETRIES=5
+          RETRY_INTERVAL=60 # Seconds
+          ATTEMPT=0
+          while echo "$WORKFLOW_STATUSES" | jq -e '.[] | select(.status == "in_progress")' > /dev/null; do
+            if [ $ATTEMPT -ge $MAX_RETRIES ]; then
+              echo "Some workflows for PR #$PR_NUMBER are still in progress after $MAX_RETRIES retries. Skipping merge."
+              exit 1
+            fi
+            echo "Workflows in progress. Retrying in $RETRY_INTERVAL seconds... (Attempt $((ATTEMPT+1))/$MAX_RETRIES)"
+            sleep $RETRY_INTERVAL
+            ATTEMPT=$((ATTEMPT+1))
+            WORKFLOW_STATUSES=$(gh run list --json conclusion,status,event,headBranch -q '[.[] | select(.event == "pull_request" and .headBranch == "${{ github.head_ref }}")]')
+          done
+
+          # Ensure all workflows completed successfully (ignore skipped workflows)
           if echo "$WORKFLOW_STATUSES" | jq -e '.[] | select(.status != "completed" or (.conclusion != "success" and .conclusion != "skipped"))' > /dev/null; then
             echo "Some workflows for PR #$PR_NUMBER are incomplete or failed. Skipping merge."
             exit 1
