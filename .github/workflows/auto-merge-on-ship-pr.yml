@@ -28,7 +28,7 @@ jobs:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
           # Extraer el número del PR
-          PR_NUMBER=$(echo "$pr" | jq -r '.number')
+          PR_NUMBER=${{ github.event.pull_request.number }}
 
           # Obtener detalles del PR usando la API de GitHub CLI
           pr=$(gh pr view "$PR_NUMBER" --json statusCheckRollup)
