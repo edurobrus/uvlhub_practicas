@@ -60,6 +60,6 @@ jobs:
               fi
             else
               echo "Not all checks have passed for PR #$PR_NUMBER. Waiting for checks to pass. Current failed count: $FAILED_COUNT."
-              sleep 30  # Wait for 30 seconds before checking again
+              sleep 10  # Wait for 30 seconds before checking again
             fi
           done
