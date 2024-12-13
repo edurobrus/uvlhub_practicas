@@ -27,39 +27,39 @@ jobs:
         env:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
-          # Extraer el número del PR
+          # Extract the PR number from the GitHub event
           PR_NUMBER=${{ github.event.pull_request.number }}
 
-          # Inicializar la condición de FAILURE_COUNT
+          # Initialize the FAILURE_COUNT condition
           FAILED_COUNT=0
 
-          # Bucle para verificar el estado hasta que solo haya un fallo
+          # Loop to check the status until there is exactly one failed workflow
           while [ "$FAILED_COUNT" -ne 1 ]; do
-            # Obtener detalles del PR usando la API de GitHub CLI
+            # Get PR details using GitHub CLI's statusCheckRollup query
             pr=$(gh pr view "$PR_NUMBER" --json statusCheckRollup)
 
-            # Contar cuántos workflows han fallado (conclusion != "SUCCESS")
+            # Count how many workflows have failed (conclusion != "SUCCESS")
             FAILED_COUNT=$(echo "$pr" | jq -r '[.statusCheckRollup[] | select(.conclusion != "SUCCESS")] | length')
 
-            # Verificar si todos los checks han pasado o si solo hay un check fallido
+            # Check if all checks passed or if exactly one check failed
             if [ "$FAILED_COUNT" -eq 0 ] || [ "$FAILED_COUNT" -eq 1 ]; then
               echo "All checks have passed or exactly one check has failed for PR #$PR_NUMBER. Verifying mergeable status..."
 
-              # Verificar si el PR es mergeable
+              # Check if the PR is mergeable
               PR_MERGEABLE=$(gh pr view "$PR_NUMBER" --json mergeable -q '.mergeable')
 
-              # Fusionar el PR si es mergeable
+              # Merge the PR if it is mergeable
               if [ "$PR_MERGEABLE" = "MERGEABLE" ]; then
                 echo "PR #$PR_NUMBER is mergeable. Proceeding to merge..."
                 gh pr merge "$PR_NUMBER" --merge --auto
                 echo "PR #$PR_NUMBER merged successfully."
-                break  # Salir del bucle después de hacer el merge
+                break  # Exit the loop after merging the PR
               else
                 echo "PR #$PR_NUMBER is not mergeable. Skipping merge."
-                break  # Salir del bucle si no es mergeable
+                break  # Exit the loop if the PR is not mergeable
               fi
             else
               echo "Not all checks have passed for PR #$PR_NUMBER. Waiting for checks to pass. Current failed count: $FAILED_COUNT."
-              sleep 30  # Esperar 30 segundos antes de volver a comprobar
+              sleep 30  # Wait for 30 seconds before checking again
             fi
           done
