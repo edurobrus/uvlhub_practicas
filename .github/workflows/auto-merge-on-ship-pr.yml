@@ -52,5 +52,5 @@ jobs:
               echo "PR #$PR_NUMBER is not mergeable. Skipping merge."
             fi
           else
-            echo "Not all checks have passed for PR #$PR_NUMBER. Skipping merge."
+            echo "Not all checks have passed for PR $PR_STATUS_CHECKS. Skipping merge."
           fi
