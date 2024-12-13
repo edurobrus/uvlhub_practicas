@@ -29,12 +29,14 @@ jobs:
         run: |
           # Extract PR details
           PR_NUMBER=${{ github.event.pull_request.number }}
+          CURRENT_RUN_ID=$(gh run view --json databaseId -q '.databaseId')
           PR_MERGEABLE=$(gh pr view "$PR_NUMBER" --json mergeable -q '.mergeable')
 
-          # Fetch workflows for this PR and check their status
+          # Fetch workflows for this PR and exclude the current workflow
           echo "Checking workflows for PR #$PR_NUMBER..."
-          WORKFLOW_STATUSES=$(gh run list --json conclusion,status,event,headBranch -q '[.[] | select(.event == "pull_request" and .headBranch == "${{ github.head_ref }}")]')
-          echo "Workflow statuses: $WORKFLOW_STATUSES"
+          WORKFLOW_STATUSES=$(gh run list --json databaseId,conclusion,status,event,headBranch -q \
+            '[.[] | select(.event == "pull_request" and .headBranch == "${{ github.head_ref }}" and .databaseId != '$CURRENT_RUN_ID')]')
+          echo "Filtered Workflow statuses: $WORKFLOW_STATUSES"
 
           # Wait for in-progress workflows to complete
           MAX_RETRIES=5
@@ -48,7 +50,8 @@ jobs:
             echo "Workflows in progress. Retrying in $RETRY_INTERVAL seconds... (Attempt $((ATTEMPT+1))/$MAX_RETRIES)"
             sleep $RETRY_INTERVAL
             ATTEMPT=$((ATTEMPT+1))
-            WORKFLOW_STATUSES=$(gh run list --json conclusion,status,event,headBranch -q '[.[] | select(.event == "pull_request" and .headBranch == "${{ github.head_ref }}")]')
+            WORKFLOW_STATUSES=$(gh run list --json databaseId,conclusion,status,event,headBranch -q \
+              '[.[] | select(.event == "pull_request" and .headBranch == "${{ github.head_ref }}" and .databaseId != '$CURRENT_RUN_ID')]')
           done
 
           # Ensure all workflows completed successfully (ignore skipped workflows)
