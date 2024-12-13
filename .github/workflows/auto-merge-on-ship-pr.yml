@@ -6,7 +6,7 @@ on:
 
 jobs:
   auto-merge:
-    if: startsWith(github.event.pull_request.title, 'ship')
+    if: contains(github.event.pull_request.title, 'ship-') || contains(github.event.pull_request.title, 'ship -')
     runs-on: ubuntu-latest
 
     steps:
@@ -23,32 +23,28 @@ jobs:
         run: |
           echo "${ADMIN_TOKEN}" | gh auth login --with-token
 
-      - name: Auto-merge PR
+      - name: Check PR status and merge
         env:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
-          # Extract PR details
           PR_NUMBER=${{ github.event.pull_request.number }}
-          CURRENT_RUN_ID=${{ github.run_id }}
-          PR_MERGEABLE=$(gh pr view "$PR_NUMBER" --json mergeable -q '.mergeable')
 
-          # Fetch workflows for this PR and exclude the current workflow
-          echo "Checking workflows for PR #$PR_NUMBER..."
-          WORKFLOW_STATUSES=$(gh run list --json databaseId,conclusion,status,event,headBranch -q \
-            '[.[] | select(.event == "pull_request" and .headBranch == "${{ github.head_ref }}" and (.databaseId | tostring) != "'$CURRENT_RUN_ID'")]')
-          echo "Filtered Workflow statuses: $WORKFLOW_STATUSES"
+          # Verify all checks have passed
+          ALL_CHECKS_PASSED=$(gh pr checks "$PR_NUMBER" --json status -q '.status == "SUCCESS"')
 
-          # Ensure all workflows completed successfully (ignore skipped workflows)
-          if echo "$WORKFLOW_STATUSES" | jq -e '.[] | select(.status != "completed" or (.conclusion != "success" and .conclusion != "skipped"))' > /dev/null; then
-            echo "Some workflows for PR #$PR_NUMBER are incomplete or failed. Skipping merge."
-            exit 1
-          fi
-
-          # Merge PR if it's mergeable
-          if [ "$PR_MERGEABLE" = "MERGEABLE" ]; then
-            echo "PR #$PR_NUMBER is mergeable. Proceeding to merge..."
-            gh pr merge "$PR_NUMBER" --merge --auto
-            echo "PR #$PR_NUMBER merged successfully."
+          if [ "$ALL_CHECKS_PASSED" = "true" ]; then
+            echo "All checks have passed for PR #$PR_NUMBER. Verifying mergeable status..."
+            
+            # Check if PR is mergeable
+            PR_MERGEABLE=$(gh pr view "$PR_NUMBER" --json mergeable -q '.mergeable')
+            
+            if [ "$PR_MERGEABLE" = "MERGEABLE" ]; then
+              echo "PR #$PR_NUMBER is mergeable. Proceeding to merge..."
+              gh pr merge "$PR_NUMBER" --merge --auto
+              echo "PR #$PR_NUMBER merged successfully."
+            else
+              echo "PR #$PR_NUMBER is not mergeable. Skipping merge."
+            fi
           else
-            echo "PR #$PR_NUMBER is not mergeable. Skipping merge."
+            echo "Not all checks have passed for PR #$PR_NUMBER. Skipping merge."
           fi
