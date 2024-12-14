@@ -1,14 +1,12 @@
 name: Auto Merge Ship PRs
 
 on:
-  check_suite:
-    types:
-      - completed
+  status
 
 jobs:
   auto-merge:
     if: >
-      github.event.check_suite.conclusion == 'success'
+      github.event.state == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -28,11 +26,11 @@ jobs:
         env:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
-          # Buscar PR asociados al evento check_suite
+          # Buscar PRs abiertos en base: main
           PR_JSON=$(gh pr list --search "is:open is:pr base:main" --json number,title)
           echo "Fetched PRs: $PR_JSON"
 
-          # Validar PR con título que empiece con 'ship'
+          # Filtrar por títulos que comiencen con 'ship'
           PR_NUMBER=$(echo "$PR_JSON" | jq -r '.[] | select(.title | startswith("ship")) | .number' | head -n 1)
 
           if [ -z "$PR_NUMBER" ]; then
