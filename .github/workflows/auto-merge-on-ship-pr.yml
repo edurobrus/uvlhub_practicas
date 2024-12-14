@@ -28,14 +28,18 @@ jobs:
         env:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
+          # Buscar PR asociados al evento check_suite
           PR_JSON=$(gh pr list --search "is:open is:pr base:main" --json number,title)
           echo "Fetched PRs: $PR_JSON"
 
+          # Validar PR con título que empiece con 'ship'
           PR_NUMBER=$(echo "$PR_JSON" | jq -r '.[] | select(.title | startswith("ship")) | .number' | head -n 1)
 
-          if [ -n "$PR_NUMBER" ]; then
-            echo "Merging PR #$PR_NUMBER"
-            gh pr merge "$PR_NUMBER" --merge --auto
-          else
-            echo "No PR found with a title starting with 'ship'."
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No se encontró ningún PR con título que comience con 'ship'."
+            exit 1
           fi
+
+          # Intentar hacer merge
+          echo "Haciendo merge al PR #$PR_NUMBER"
+          gh pr merge "$PR_NUMBER" --merge --auto || echo "Error al intentar hacer merge al PR #$PR_NUMBER."
