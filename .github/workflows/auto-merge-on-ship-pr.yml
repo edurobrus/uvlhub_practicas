@@ -7,9 +7,8 @@ on:
 
 jobs:
   auto-merge:
-    if: > 
-      github.event.check_suite.conclusion == 'success' &&
-      startsWith(github.event.check_suite.pull_requests[0].title, 'ship')
+    if: >
+      github.event.check_suite.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -25,13 +24,18 @@ jobs:
         run: |
           echo "${ADMIN_TOKEN}" | gh auth login --with-token
 
-      - name: Merge the PR
+      - name: Find and Merge PR
         env:
           ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
         run: |
-          PR_NUMBER=$(gh pr list --search "is:open is:pr base:main" --json number --jq '.[] | .number' | head -n 1)
+          PR_JSON=$(gh pr list --search "is:open is:pr base:main" --json number,title)
+          echo "Fetched PRs: $PR_JSON"
+
+          PR_NUMBER=$(echo "$PR_JSON" | jq -r '.[] | select(.title | startswith("ship")) | .number' | head -n 1)
+
           if [ -n "$PR_NUMBER" ]; then
             echo "Merging PR #$PR_NUMBER"
             gh pr merge "$PR_NUMBER" --merge --auto
           else
-            echo "No PR found to merge."
+            echo "No PR found with a title starting with 'ship'."
+          fi
