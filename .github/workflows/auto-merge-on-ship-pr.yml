@@ -27,11 +27,12 @@ jobs:
           GITHUB_EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_EVENT_PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          # Extract PR number and title
           PR_NUMBER=$GITHUB_EVENT_PR_NUMBER
           PR_TITLE=$GITHUB_EVENT_PR_TITLE
+          # Extract PR number and title
+          PR_TITLE=$(echo "$PR_TITLE" | xargs)
 
-          if [[ "$PR_TITLE" =~ ^ship ]]; then
+          if [[ "$PR_TITLE" == ship* ]]; then
             echo "Processing PR #$PR_NUMBER with title: $PR_TITLE"
 
             # Loop to check the status until there is exactly one failed workflow
@@ -46,11 +47,11 @@ jobs:
 
               # Count how many workflows have failed
               FAILED_COUNT=$(echo "$pr_status" | jq -r '[.statusCheckRollup[] | select(.conclusion != "SUCCESS")] | length')
-              echo "Failed checks count for PR #$PR_NUMBER: $FAILED_COUNT"
-
+              echo "Total number of checks (failed or incomplete) for PR #$PR_NUMBER: $FAILED_COUNT"
+              
               # Count how many workflows have failures
               FAILURE_COUNT=$(echo "$pr_status" | jq -r '[.statusCheckRollup[] | select(.conclusion == "FAILURE")] | length')
-              echo "Failed checks count for PR #$PR_NUMBER: $FAILURE_COUNT"
+              echo "Number of failed checks (with FAILURE status) for PR #$PR_NUMBER: $FAILURE_COUNT"
 
               if [ "$FAILURE_COUNT" -ge 1 ]; then
                 break
@@ -78,7 +79,7 @@ jobs:
                 fi
               else
                 echo "Not all checks have passed for PR #$PR_NUMBER. Retrying in 10 seconds..."
-                sleep 30
+                sleep 10
               fi
             done
           else
